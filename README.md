@@ -21,6 +21,6 @@ To compile this program...
 
    pyinstaller --onefile --icon=images/nao_thumbnail.ico --add-data "images;images" --name "DragnDropAwakeningsOverlay" main.py
 
-
-4. being able to see the console is useful for debugging. I mostly expect developrs to want to be able to see the console.
-5. Once all slots on the gui are filled manually, it outputs 6 text files locally: player0.txt, player1.txt, etc.
+4. you do not have to compile the program, you can also just run 'python main.py'. but these steps above are for if you want to compile the app.
+5. being able to see the console is useful for debugging. I mostly expect developrs to want to be able to see the console.
+6. Once all slots on the gui are filled manually, it outputs 6 text files locally: player0.txt, player1.txt, etc.
