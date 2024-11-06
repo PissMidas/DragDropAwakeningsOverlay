@@ -1,7 +1,7 @@
 # DragDropAwakeningsOverlay
 A GUI that enables stream runners to read awakening data from logs and create an overlay about awakenings.
 
-##These steps below are for stream runners that want to download this app
+## These steps below are for stream runners that want to download this app
 1. go to https://github.com/PissMidas/DragDropAwakeningsOverlay/releases to download the .exe file. download and double click the .exe to start.
 2. Once all slots are filled manually on the gui, the app outputs 6 text files. 'player0.txt', 'player1.txt', etc.
 3. contact me if you are a stream runner and are confused about anything.
@@ -9,7 +9,7 @@ A GUI that enables stream runners to read awakening data from logs and create an
 
 
 
-##These steps below are for developers.
+## These steps below are for developers.
 To compile this program...
 1. Download this repo.
 2. install relevant libraries (and pyinstaller)
