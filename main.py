@@ -2,7 +2,7 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QSizePolicy, QPushButton
 from PyQt5.QtCore import pyqtSignal, Qt, QObject, QThread, QMimeData, QPoint, QRect, QUrl,QCoreApplication
-from PyQt5.QtGui import QPixmap, QDrag, QPainter, QFont, QColor
+from PyQt5.QtGui import QPixmap, QDrag, QPainter, QFont, QColor, QIcon
 import os
 import sys
 import pygetwindow
@@ -10,6 +10,11 @@ import re
 import ast
 import time
 from collections import Counter
+import tkinter as tk
+from tkinter import messagebox, ttk
+
+#pyinstaller --onefile --icon=images/nao_thumbnail.ico --add-data "images;images" --name "DragnDropAwakeningsOverlay" main.py
+#use this to compile this program in a single file executable.
 
 # Keywords to filter log entries
 KEYWORDS = ["Application Will Terminate", "PostGameCelebration", "Tags: {'", "equipping trainings", "Num Trainings: 2"]
@@ -42,6 +47,11 @@ dict_internal_to_external = {
     "StalwartProtector": "Dubu", "TempoSniper": "Estelle", "UmbrellaUser": "Kazan",
     "WhipFighter": "Rasmus", "Healer": "Nao", "DrumOni": "Mako",
 }   #bottom half is used for reading lines with "DetermineLobbyAnimation". asher's arbitrarily is different [Shieldz and ShieldUser]
+
+
+DICT_INTERNAL_TO_EXTERNAL_AWAKENINGS = {"TD_AvoidDamageHitHarder": "Glass Cannon", "TD_BarrierBuff": "Demolitionist", "TD_BaseStaggerAndRegen": "Reptile Remedy", "TD_BlessingCooldownRate": "Spark of Focus", "TD_BlessingMaxStagger": "Spark of Resilience", "TD_BlessingPower": "Spark of Strength", "TD_BlessingShare": "Spark of Leadership", "TD_BlessingSpeed": "Spark of Agility", "TD_BuffAndDebuffDuration": "Cast to Last", "TD_ComboATarget": "One-Two Punch", "TD_CreationSize": "Monumentalist", "TD_CreationSizeLifeTime": "Timeless Creator", "TD_DistancePower": "Deadeye", "TD_EdgePower": "Knife's Edge", "TD_EmpoweredHitsBuff": "Specialized Training", "TD_EnergyCatalyst": "Catalyst", "TD_EnergyConversion": "Egoist", "TD_EnergyDischarge": "Fire Up!", "TD_EnhancedOrbsCooldown": "Orb Ponderer" , "TD_EnhancedOrbsSpeed": "Orb Dancer", "TD_FasterDashes": "Super Surge", "TD_FasterDashes2": "Chronoboost", "TD_FasterDashes3": "Explosive Entrance", "TD_FasterProjectiles": "Missile Propulsion", "TD_FasterProjectiles2": "Aerials", "TD_FasterProjectiles3":"Siege Machine", "TD_HitAnythingRestoreStagger": "Tempo Swing", "TD_HitEnemyBurnThem": "Stinger", "TD_HitRockCooldown": "Hotshot", "TD_HitsIncreaseSpeedAndPower": "Stacks On Stacks", "TD_HitSpeed": "Fight Or Flight", "TD_HitsReduceCooldowns": "Perfect Form", "TD_IncreasedPowerWithMaxStagger": "OLD Unstoppable", "TD_IncreasedSpeedWithStagger": "Stagger Swagger", "TD_KOKing": "Prize Fighter", "TD_MovementAbilityCharges": "Twin Drive", "TD_MultiHitsReduceCooldowns": "Heavy Impact", "TD_OrbShare": "Orb Replicator", "TD_PrimaryAbilityCooldownReduction": "Rapid Fire", "TD_PrimaryEcho": "Primetime", "TD_ResistFirstHit": "Unstoppable", "TD_Revive":"Recovery Drone", "TD_ShrinkSelfGrowAllies": "Among Titans", "TD_SizeIncrease": "Built Different", "TD_SizeIncrease2": "Big Fish", "TD_SizePowerConversion": "Might of the Colossus", "TD_SpecialCooldownAfterRounds": "Extra Special", "TD_StackingSize": "Rampage", "TD_StaggerCooldownRateConversion": "Reverberation", "TD_StaggerPowerConversion": "Bulk Up", "TD_StaggerSpeedConversion": "Peak Performance", "TD_StrikeCooldownReduction": "Quick Strike", "TD_StrikeRockTowardsAllies": "Team Player", "TD_TakeDownReduceCooldowns": "Adrenaline Rush"}
+
+DICT_INTERNAL_TO_EXTERNAL_AWAKENINGS.update({"TD_MovementAbilitiesTeleport": "Eject Button", "TD_IncreasedSpeedCrossingMidfield": "Magnetized Soles", "TD_GainRampingSpeed": "Momentum Boots", "TD_HitEnemyDrainThem": "Siphoning Wand", "TD_GoalArcPower": "Powerhouse Pauldrons", "TD_HitStaggerEnemyCooldownReduction": "Pummelers", "TD_StrikeRockSpeedUp": "Slick Kicks", "TD_RangedStrike": "Strike Shot", "TD_KnockAnythingRecoverStagger": "Vicious Vambraces" })
 
 # Check if Omega Strikers window is open
 def is_omega_strikers_window_open():
@@ -127,7 +137,10 @@ class LogEventHandler(FileSystemEventHandler):
                                         self.update_signal.emit("update_player_display")  # Emit signal to update players
 
                                 trainings = [dict_internal_to_external.get(t, t) for t in re.findall(r"TD_\w+", match.group(2)) if t.startswith("TD_")]
+                                trainings = [DICT_INTERNAL_TO_EXTERNAL_AWAKENINGS.get(t, t) for t in trainings]
+
                                 existing_trainings = DICT_IGN_TRAININGS.get(player, [])  # Use get to avoid KeyError
+
                                 if existing_trainings == trainings:
                                     pass
                                     #print(f"Trainings for player {player} have not changed.")
@@ -144,6 +157,9 @@ class LogEventHandler(FileSystemEventHandler):
                             time.sleep(0.01)
                             self.update_signal.emit(cleaned_line)
                             print(f"Application will terminate line found. we should end this program.")
+                            time.sleep(2)
+
+
 
     def reset_global_lists(self):
         CURRENT_GAME_LOGS.clear()
@@ -234,12 +250,13 @@ class DropZone(QFrame):
     def __init__(self, slot_type, parent=None):
         super().__init__(parent)
         self.setAcceptDrops(True)
-        #self.setFrameStyle(QFrame.Sunken)
-        #self.setStyleSheet("background-color: black;")
+        self.setFrameStyle(QFrame.Sunken)
+
+        self.setStyleSheet("background-color: dark grey;")
 
         if (slot_type == "Player"):
-            self.setMinimumSize(140, 80)
-            self.setFixedSize(140, 80)
+            self.setMinimumSize(160, 80)
+            self.setFixedSize(160, 80)
 
         else:
             self.setMinimumSize(80, 80)
@@ -340,7 +357,7 @@ class DropZone(QFrame):
                 image_rect.moveCenter(self.rect().center())
                 painter.drawPixmap(image_rect, scaled_pixmap)
         else:
-            painter.fillRect(self.rect(), QColor(255, 255, 255))
+            painter.fillRect(self.rect(), QColor(169, 169, 169))
             painter.setPen(Qt.black)
             painter.setFont(QFont('Arial', 14))
             painter.drawText(self.rect(), Qt.AlignCenter, self.text)
@@ -356,9 +373,10 @@ class LogViewer(QWidget):
 
 
     def initUI(self):
-        self.setWindowTitle("Omega Strikers Overlay Config")
+        self.setWindowTitle("Drag'n'Drop Awakenings Overlay v0.0.1")
         self.setGeometry(100, 100, 700, 450)
-
+        self.setWindowIcon(QIcon('images/nao_thumbnail.ico'))
+        self.setStyleSheet("QMainWindow {background-color: darkgray;}")
 
         #self.setWindowFlags(Qt.Window | Qt.MSWindowsFixedSizeDialogHint) # disables resizing
 
@@ -562,30 +580,35 @@ class LogViewer(QWidget):
     def update_player_display(self):
         # Clear existing players
         global PLAYER_LIST
-        #print('line 206')
-        if(len(self.players_labels)==0):
+
+        # Check if there are no labels to update
+        if len(self.players_labels) == 0:
             print('566')
-            # build player display
-            #print(PLAYER_LIST)
+            # Build player display
             for player in PLAYER_LIST:
-                player_label = DraggableLabel(player_name=str(player),character_name=None, image_path=None)
+                player_label = DraggableLabel(player_name=str(player), character_name=None, image_path=None)
                 self.players_labels.append(player_label)
                 self.players_layout.addWidget(player_label)
-
         else:
+            # Iterate over the existing player labels and update them
             for index, player_label in enumerate(self.players_labels):
-                player_label.player_name = str(PLAYER_LIST[index])
-                print('line577')
-                print(player_label.player_name)
+                if index < len(PLAYER_LIST):  # Ensure that the index does not go out of range
+                    try:
+                        # Safely update player label with the player's name
+                        player_label.player_name = str(PLAYER_LIST[index])
+                        player_label.player_text = str(PLAYER_LIST[index])
+                        player_label.text = str(PLAYER_LIST[index])
+                        print('line577')
+                        print(player_label.player_name)
+                        player_label.setText(str(PLAYER_LIST[index]))  # Update the text on the label
+                        player_label.show()  # Show the label
+                    except Exception as e:
+                        print(f"Error updating player label at index {index}: {e}")
+                else:
+                    print(f"Index {index} is out of range for PLAYER_LIST (length: {len(PLAYER_LIST)})")
 
-                player_label.player_text = str(PLAYER_LIST[index])
-                player_label.text= str(PLAYER_LIST[index])
-                player_label.setText(str(PLAYER_LIST[index]))
-                player_label.show()  # Show the label
-                self.update()
-        # Debugging output
-        #print(PLAYER_LIST)
-        #print("Player names updated:", [label.text() for label in self.players_labels])  # Log the current player names
+            self.update()
+
 
     def update_character_display(self):
         # Clear existing characters
@@ -669,7 +692,6 @@ class LogViewer(QWidget):
         #looks at the dropzones, and prints out the intented organised output file.
         #TODO only prints right now. write to a notepad!
         playerlist, characterlist = self.print_data_dropzones()
-        #print('line584')
         print(f"Current Players in corresponding dropzones: {', '.join(playerlist)}")
         print(f"Current Characters in corresponding dropzones: {', '.join(characterlist)}")
         print(f"This is the unorganized dict: {DICT_IGN_TRAININGS}")
@@ -679,15 +701,29 @@ class LogViewer(QWidget):
         indexed_overlay_of_players_characters_trainings = []
 
         # Iterate over the playerlist and characterlist
-        for i in range(len(playerlist)):
-            player = playerlist[i]
-            character = characterlist[i] if i < len(characterlist) else None  # Handle potential mismatches in length
-            trainings = DICT_IGN_TRAININGS.get(player, [])  # Get the trainings, defaulting to an empty list if not found
+        for i, player in enumerate(playerlist):
+            # Define the filename for each player
+            filename = f"player{i}.txt"
 
-            # Create the formatted string
-            trainings_str = ', '.join(trainings)
-            indexed_overlay_of_players_characters_trainings.append(f"{player}, {character}, {trainings_str}")
+            # Get the character for the player if available
+            character = characterlist[i] if i < len(characterlist) else None
 
+            # Retrieve the trainings list for the player, defaulting to an empty list if not found
+            trainings = DICT_IGN_TRAININGS.get(player, [])
+
+            # Write to the file in UTF-8 encoding
+            with open(filename, 'w', encoding='utf-8') as file:
+                # Write the player's name
+                file.write(f"{player}\n")
+
+                # Write the character (use a placeholder if character is None)
+                file.write(f"{character or 'No character assigned'}\n")
+
+                # Write each training item on a new line
+                for training in trainings:
+                    file.write(f"{training}\n")
+
+            print(f"Data for {player} written to {filename}.")
 
         # Join the list into a single string with line breaks between each entry
         print('here are the organized players, characters, and their trainings.')
@@ -702,7 +738,9 @@ class LogViewer(QWidget):
         if "Application Will Terminate" in log_message:
             self.print_data_dropzones()
             #TODO exit
-
+            print("Application will terminate log line found, closing app.")
+            time.sleep(2)
+            self.close()
         if "update_characters_display" == log_message:
             #print('found log message that apllication will terminate')
             self.update_character_display()
@@ -717,12 +755,17 @@ class LogViewer(QWidget):
         elif "equipped_awakenings_has_changed" == log_message:
             self.write_to_text_overlay_output()
 def main():
-    if (is_omega_strikers_window_open() is False):
-        return
+    if not is_omega_strikers_window_open():
+        root = tk.Tk()
+        root.withdraw()  # Hide the root window
+        # Show a message box dialog
+        messagebox.showinfo("Message", "Omega strikers not found. Exiting app.")
+        sys.exit()
+
     app = QApplication(sys.argv)
     viewer = LogViewer()
 
-    log_file_path =os.path.join(os.getenv('LOCALAPPDATA'), 'OmegaStrikers', 'Saved', 'Logs', 'OmegaStrikers.log')
+    log_file_path = os.path.join(os.getenv('LOCALAPPDATA'), 'OmegaStrikers', 'Saved', 'Logs', 'OmegaStrikers.log')
 
     # Start log monitoring in a separate thread
     thread = QThread()
@@ -733,8 +776,7 @@ def main():
 
     viewer.show()
 
-    # =
-    # Append a '.' to the log file
+    # Append a '.' to the log file. this is for testing: changing the .log file forces the observer to pay attention.
     #with open(log_file_path, 'a') as log_file:  # 'a' mode opens the file for appending
     #    log_file.write('.\n')  # Write the dot and add a newline for readability
 
