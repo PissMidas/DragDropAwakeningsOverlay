@@ -13,7 +13,7 @@ from collections import Counter
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-#pyinstaller --onefile --icon=images/nao_thumbnail.ico --add-data "images;images" --name "DragnDropAwakeningsOverlay" main.py
+#pyinstaller --onefile --noconsole --icon=images/nao_thumbnail.ico --add-data "images;images" --name "DragnDropAwakeningsOverlay" main.py
 #use this to compile this program in a single file executable.
 
 # Keywords to filter log entries
@@ -63,6 +63,15 @@ def is_omega_strikers_window_open():
     print("Omega strikers is not running. closing app.")
     return False  # Set to True for testing; change to False for actual use
 
+def resourcePath(relativePath):
+    #Get absolute path to resource, works for dev and for PyInstaller
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        basePath = sys._MEIPASS
+    except Exception:
+        basePath = os.path.abspath(".")
+
+    return os.path.join(basePath, relativePath)
 class LogEventHandler(FileSystemEventHandler):
     def __init__(self, log_file_path, update_signal):
         super().__init__()
@@ -373,9 +382,9 @@ class LogViewer(QWidget):
 
 
     def initUI(self):
-        self.setWindowTitle("Drag'n'Drop Awakenings Overlay v0.0.1")
+        self.setWindowTitle("Drag'n'Drop Awakenings Overlay v0.0.2")
         self.setGeometry(100, 100, 700, 450)
-        self.setWindowIcon(QIcon('images/nao_thumbnail.ico'))
+        self.setWindowIcon(QIcon(resourcePath("images/nao_thumbnail.ico")))
         self.setStyleSheet("QMainWindow {background-color: darkgray;}")
 
         #self.setWindowFlags(Qt.Window | Qt.MSWindowsFixedSizeDialogHint) # disables resizing
@@ -512,7 +521,6 @@ class LogViewer(QWidget):
         return drop_slot
 
     def dragEnterEvent(self, event):
-        print('line496')
         #if event.mimeData().hasText() or event.mimeData().hasImage():
         event.accept()
         #else:
@@ -520,7 +528,6 @@ class LogViewer(QWidget):
 
     def dropEvent(self, event):
         # Accept the drop event
-        print('line504')
         event.accept()
         # Get the drop zone that received the drop event
 
@@ -583,7 +590,6 @@ class LogViewer(QWidget):
 
         # Check if there are no labels to update
         if len(self.players_labels) == 0:
-            print('566')
             # Build player display
             for player in PLAYER_LIST:
                 player_label = DraggableLabel(player_name=str(player), character_name=None, image_path=None)
@@ -598,7 +604,6 @@ class LogViewer(QWidget):
                         player_label.player_name = str(PLAYER_LIST[index])
                         player_label.player_text = str(PLAYER_LIST[index])
                         player_label.text = str(PLAYER_LIST[index])
-                        print('line577')
                         print(player_label.player_name)
                         player_label.setText(str(PLAYER_LIST[index]))  # Update the text on the label
                         player_label.show()  # Show the label
@@ -614,9 +619,8 @@ class LogViewer(QWidget):
         # Clear existing characters
         global CHARACTERS_IN_LOBBY
         if(len(self.character_labels)==0):
-            print('line594')
             for character in CHARACTERS_IN_LOBBY:  # Assuming this is your list of characters
-                character_image_path = os.path.join('images', f'{character}.png')  # Ensure this is the correct path
+                character_image_path = resourcePath(f"images/{character}.png")  # Ensure this is the correct path
                 character_pixmap = QPixmap(character_image_path)  # Load the image as QPixmap
 
                 if not character_pixmap.isNull():  # Check if the image was loaded successfully
@@ -641,7 +645,7 @@ class LogViewer(QWidget):
                 character_label.character_name = str(character_name)
                 #character_label.setText(character_name)
 
-                character_image_path = os.path.join('images', f'{str(character_name)}.png')  # Get the updated path
+                character_image_path =resourcePath(f"images/{str(character_name)}.png")  # Get the updated path
                 character_pixmap = QPixmap(str(character_image_path))  # Load the image as QPixmap
 
                 if not character_pixmap.isNull():  # Check if the image was loaded successfully
