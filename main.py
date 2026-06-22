@@ -1,7 +1,7 @@
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QSizePolicy, QPushButton
-from PyQt5.QtCore import pyqtSignal, Qt, QObject, QThread, QMimeData, QPoint, QRect, QUrl,QCoreApplication
+from PyQt5.QtCore import pyqtSignal, Qt, QObject, QThread, QMimeData, QPoint, QRect, QUrl,QCoreApplication, QTimer
 from PyQt5.QtGui import QPixmap, QDrag, QPainter, QFont, QColor, QIcon
 import os
 import sys
@@ -9,6 +9,10 @@ import pygetwindow
 import re
 import ast
 import time
+import asyncio
+import json
+import threading
+from aiohttp import web
 from collections import Counter
 import tkinter as tk
 from tkinter import messagebox, ttk
@@ -48,11 +52,118 @@ dict_internal_to_external = {
     "WhipFighter": "Rasmus", "Healer": "Nao", "DrumOni": "Mako",
 }   #bottom half is used for reading lines with "DetermineLobbyAnimation". asher's arbitrarily is different [Shieldz and ShieldUser]
 
+'''
+dict_internal_to_external.update({"CD_AngelicSupport": "Atlas", "CD_ChaoticRocketeer": "Luna", "CD_CleverSummoner": "Juno",
+"CD_EDMOni": "Octavia", "CD_EmpoweringEnchanter": "Era", "CD_FlashySwordsman": "Zentaro",
+"CD_FlexibleBrawler": "Juliette", "CD_GravityMage": "Finii", "CD_HulkingBeast": "X",
+"CD_MagicalPlaymaker": "Ai.Mi", "CD_ManipulatingMastermind": "Rune", "CD_NimbleBlaster": "Drek'ar",
+"CD_RockOni": "Vyce", "CD_ShieldUser": "Asher", "CD_SpeedySkirmisher": "Kai",
+"CD_StalwartProtector": "Dubu", "CD_TempoSniper": "Estelle", "CD_UmbrellaUser": "Kazan",
+"CD_WhipFighter": "Rasmus", "CD_Healer": "Nao", "CD_DrumOni": "Mako",})
+'''
 
-DICT_INTERNAL_TO_EXTERNAL_AWAKENINGS = {"TD_AvoidDamageHitHarder": "Glass Cannon", "TD_BarrierBuff": "Demolitionist", "TD_BaseStaggerAndRegen": "Reptile Remedy", "TD_BlessingCooldownRate": "Spark of Focus", "TD_BlessingMaxStagger": "Spark of Resilience", "TD_BlessingPower": "Spark of Strength", "TD_BlessingShare": "Spark of Leadership", "TD_BlessingSpeed": "Spark of Agility", "TD_BuffAndDebuffDuration": "Cast to Last", "TD_ComboATarget": "One-Two Punch", "TD_CreationSize": "Monumentalist", "TD_CreationSizeLifeTime": "Timeless Creator", "TD_DistancePower": "Deadeye", "TD_EdgePower": "Knife's Edge", "TD_EmpoweredHitsBuff": "Specialized Training", "TD_EnergyCatalyst": "Catalyst", "TD_EnergyConversion": "Egoist", "TD_EnergyDischarge": "Fire Up!", "TD_EnhancedOrbsCooldown": "Orb Ponderer" , "TD_EnhancedOrbsSpeed": "Orb Dancer", "TD_FasterDashes": "Super Surge", "TD_FasterDashes2": "Chronoboost", "TD_FasterDashes3": "Explosive Entrance", "TD_FasterProjectiles": "Missile Propulsion", "TD_FasterProjectiles2": "Aerials", "TD_FasterProjectiles3":"Siege Machine", "TD_HitAnythingRestoreStagger": "Tempo Swing", "TD_HitEnemyBurnThem": "Stinger", "TD_HitRockCooldown": "Hotshot", "TD_HitsIncreaseSpeedAndPower": "Stacks On Stacks", "TD_HitSpeed": "Fight Or Flight", "TD_HitsReduceCooldowns": "Perfect Form", "TD_IncreasedPowerWithMaxStagger": "OLD Unstoppable", "TD_IncreasedSpeedWithStagger": "Stagger Swagger", "TD_KOKing": "Prize Fighter", "TD_MovementAbilityCharges": "Twin Drive", "TD_MultiHitsReduceCooldowns": "Heavy Impact", "TD_OrbShare": "Orb Replicator", "TD_PrimaryAbilityCooldownReduction": "Rapid Fire", "TD_PrimaryEcho": "Primetime", "TD_ResistFirstHit": "Unstoppable", "TD_Revive":"Recovery Drone", "TD_ShrinkSelfGrowAllies": "Among Titans", "TD_SizeIncrease": "Built Different", "TD_SizeIncrease2": "Big Fish", "TD_SizePowerConversion": "Might of the Colossus", "TD_SpecialCooldownAfterRounds": "Extra Special", "TD_StackingSize": "Rampage", "TD_StaggerCooldownRateConversion": "Reverberation", "TD_StaggerPowerConversion": "Bulk Up", "TD_StaggerSpeedConversion": "Peak Performance", "TD_StrikeCooldownReduction": "Quick Strike", "TD_StrikeRockTowardsAllies": "Team Player", "TD_TakeDownReduceCooldowns": "Adrenaline Rush"}
+
+dict_internal_to_external_CD={"CD_AngelicSupport": "Atlas", "CD_ChaoticRocketeer": "Luna", "CD_CleverSummoner": "Juno",
+"CD_EDMOni": "Octavia", "CD_EmpoweringEnchanter": "Era", "CD_FlashySwordsman": "Zentaro",
+"CD_FlexibleBrawler": "Juliette", "CD_GravityMage": "Finii", "CD_HulkingBeast": "X",
+"CD_MagicalPlaymaker": "Ai.Mi", "CD_ManipulatingMastermind": "Rune", "CD_NimbleBlaster": "Drek'ar",
+"CD_RockOni": "Vyce", "CD_ShieldUser": "Asher", "CD_SpeedySkirmisher": "Kai",
+"CD_StalwartProtector": "Dubu", "CD_TempoSniper": "Estelle", "CD_UmbrellaUser": "Kazan",
+"CD_WhipFighter": "Rasmus", "CD_Healer": "Nao", "CD_DrumOni": "Mako"
+} #used only when building a json to send to a websocket.
+
+
+DICT_INTERNAL_TO_EXTERNAL_AWAKENINGS = {"TD_AvoidDamageHitHarder": "Glass Cannon", "TD_BarrierBuff": "Demolitionist", "TD_BaseStaggerAndRegen": "Reptile Remedy", "TD_BlessingCooldownRate": "Spark of Focus", "TD_BlessingMaxStagger": "Spark of Resilience", "TD_BlessingPower": "Spark of Strength", "TD_BlessingShare": "Spark of Leadership", "TD_BlessingSpeed": "Spark of Agility", "TD_BuffAndDebuffDuration": "Cast to Last", "TD_ComboATarget": "One-Two Punch", "TD_CreationSize": "Monumentalist", "TD_CreationSizeLifeTime": "Timeless Creator", "TD_DistancePower": "Deadeye", "TD_EdgePower": "Knife's Edge", "TD_EmpoweredHitsBuff": "Specialized Training", "TD_EnergyCatalyst": "Catalyst", "TD_EnergyConversion": "Egoist", "TD_EnergyDischarge": "Fire Up!", "TD_EnhancedOrbsCooldown": "Orb Ponderer" , "TD_EnhancedOrbsSpeed": "Orb Dancer", "TD_FasterDashes": "Super Surge", "TD_FasterDashes2": "Chronoboost", "TD_FasterDashes3": "Explosive Entrance", "TD_FasterProjectiles": "Missile Propulsion", "TD_FasterProjectiles2": "Aerials", "TD_FasterProjectiles3":"Siege Machine", "TD_HitAnythingRestoreStagger": "Tempo Swing", "TD_HitEnemyBurnThem": "Stinger", "TD_HitRockCooldown": "Hotshot", "TD_HitsIncreaseSpeedAndPower": "Stacks On Stacks", "TD_HitSpeed": "Fight Or Flight", "TD_HitsReduceCooldowns": "Perfect Form", "TD_IncreasedPowerWithMaxStagger": "OLD Unstoppable", "TD_IncreasedSpeedWithStagger": "Stagger Swagger", "TD_KOKing": "Prize Fighter", "TD_MovementAbilityCharges": "Twin Drive", "TD_MultiHitsReduceCooldowns": "Heavy Impact", "TD_OrbShare": "Orb Replicator", "TD_PrimaryAbilityCooldownReduction": "Rapid Fire", "TD_PrimaryEcho": "Primetime", "TD_ResistFirstHit": "Unstoppable", "TD_Revive":"Recovery Drone", "TD_ShrinkSelfGrowAllies": "Among Titans", "TD_SizeIncrease": "Built Different", "TD_SizeIncrease2": "Big Fish", "TD_SizePowerConversion": "Might of the Colossus", "TD_SpecialCooldownAfterRounds": "Extra Special", "TD_StackingSize": "Rampage", "TD_StaggerCooldownRateConversion": "Reverberation", "TD_StaggerPowerConversion": "Bulk Up", "TD_StaggerSpeedConversion": "Peak Performance", "TD_StrikeCooldownReduction": "Quick Strike", "TD_StrikeRockTowardsAllies": "Team Player", "TD_TakeDownReduceCooldowns": "Adrenaline Rush", "TD_AvoidKnockoutGainSpeed": "Omega Infused Accelerator", "TD_IncreasedStatsWhileStaggered": "Berserker", "TD_HitCoreGainCDR": "Inner Focus" }
 
 DICT_INTERNAL_TO_EXTERNAL_AWAKENINGS.update({"TD_MovementAbilitiesTeleport": "Eject Button", "TD_IncreasedSpeedCrossingMidfield": "Magnetized Soles", "TD_GainRampingSpeed": "Momentum Boots", "TD_HitEnemyDrainThem": "Siphoning Wand", "TD_GoalArcPower": "Powerhouse Pauldrons", "TD_HitStaggerEnemyCooldownReduction": "Pummelers", "TD_StrikeRockSpeedUp": "Slick Kicks", "TD_RangedStrike": "Strike Shot", "TD_KnockAnythingRecoverStagger": "Vicious Vambraces" })
 
+
+# Cache to hold the most recent live JSON structure for newly connecting clients
+LAST_VALID_PAYLOAD = {"blue": [], "red": []}
+
+
+# Global set to track active OBS browser connections across threads
+
+CONNECTED_CLIENTS = set()
+
+async def handle_blue_page(request):
+    return web.FileResponse('website/blue.html')
+
+async def handle_red_page(request):
+    return web.FileResponse('website/red.html')
+
+async def handle_websocket(request):
+    ws = web.WebSocketResponse()
+    await ws.prepare(request)
+
+    # 1. Add the client to the connected set
+    CONNECTED_CLIENTS.add(ws)
+    print("Connected to overlay server as blue/red team.")
+
+    # 2. IMMEDIATELY send the last known live layout state right after connection
+    try:
+        # Pushes the cached live data (or the empty template if no broadcast has happened yet)
+        await ws.send_str(json.dumps(LAST_VALID_PAYLOAD))
+        print("Initial live state payload pushed to connected browser tab.")
+    except Exception as e:
+        print(f"Failed to send initial payload: {e}")
+
+    # 3. Keep the connection alive
+    try:
+        async for msg in ws:
+            if msg.type == web.WSMsgType.TEXT and msg.data == 'close':
+                await ws.close()
+    finally:
+        CONNECTED_CLIENTS.remove(ws)
+
+    return ws
+def start_asyncio_server(viewer):
+    # Standard threads do not have an active asyncio loop by default; one must be created manually
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    app = web.Application()
+
+    # Map the URL endpoints to their respective handler functions
+    app.router.add_get('/blue', handle_blue_page)
+    app.router.add_get('/red', handle_red_page)
+    app.router.add_get('/', handle_websocket)
+
+    # Route to allow blue.html and red.html to fetch local files like overlay.js or styles.css
+    app.router.add_static('/', path='website', name='website')
+
+    # Bind the application to the network port
+    runner = web.AppRunner(app)
+    loop.run_until_complete(runner.setup())
+    site = web.TCPSite(runner, 'localhost', 8765)
+    loop.run_until_complete(site.start())
+
+    # Keep the thread loop alive indefinitely to process network traffic
+    loop.run_forever()
+
+def broadcast_to_overlay(payload_dict):
+    """Serializes the data dictionary and safely dispatches it to the async server thread."""
+    global LAST_VALID_PAYLOAD
+
+    # Early exit if the new state matches the previously broadcasted state
+    if payload_dict == LAST_VALID_PAYLOAD:
+        return
+
+    LAST_VALID_PAYLOAD = payload_dict  # Save the new live data to the cache
+
+    json_string = json.dumps(payload_dict)
+
+    active_clients = list(CONNECTED_CLIENTS)
+    print(f"Attempting broadcast to {len(active_clients)} active clients...")
+
+    for ws in active_clients:
+        try:
+            loop = ws._req.app.loop if hasattr(ws, '_req') else asyncio.get_event_loop()
+            if loop and loop.is_running():
+                asyncio.run_coroutine_threadsafe(ws.send_str(json_string), loop)
+                print("Packet thread-bridge execution scheduled successfully.")
+        except Exception as e:
+            print(f"Failed to send data packet to client: {e}")
 # Check if Omega Strikers window is open
 def is_omega_strikers_window_open():
     game_title = "OmegaStrikers"
@@ -80,7 +191,9 @@ class LogEventHandler(FileSystemEventHandler):
         self.update_signal = update_signal  # Signal to communicate with the GUI
 
     def on_modified(self, event):
+
         if not event.is_directory and event.src_path == self.log_file_path:
+
             current_size = os.path.getsize(self.log_file_path)
 
             with open(self.log_file_path, "r", encoding="utf-8") as file:
@@ -96,7 +209,8 @@ class LogEventHandler(FileSystemEventHandler):
                     # Soft reset if new game is detected
                     #time.sleep(0.01)
                     if "Current[EMatchPhase::CharacterSelect]" in cleaned_line:
-                        time.sleep(0.1)
+
+                        time.sleep(0.01)
                         self.reset_global_lists()
                         self.update_signal.emit("reset_dropzone_display")
                     # Avoid duplicate log entries
@@ -107,15 +221,17 @@ class LogEventHandler(FileSystemEventHandler):
                                 continue #if EmatchPhase::VersusScreen is not in the logs, then we should not append the current line.
 
                         CURRENT_GAME_LOGS.append(cleaned_line)
-                        #time.sleep(0.1)
+                        time.sleep(0.01)
                         #self.update_signal.emit(cleaned_line)  # Emit signal for new log entry
 
                         # Extract character tags and convert to external names
 
                         if "LogPMSkinDataManager: UPMSkinDataManagerComponent::DetermineLobbyAnimation" in cleaned_line:
+
                             if(len(CHARACTERS_IN_LOBBY)<6):
                                 #print(f"line 109 Characters in the lobby so far {CHARACTERS_IN_LOBBY}")
                                 match = re.search(r"SD_([^_]+)", cleaned_line)
+                                converted_value = None
                                 if match:
                                     extracted_value = match.group(1)
                                     converted_value = dict_internal_to_external.get(extracted_value)
@@ -126,9 +242,12 @@ class LogEventHandler(FileSystemEventHandler):
                                 else:
                                     print("Converted value:", converted_value)
                                     if (converted_value not in CHARACTERS_IN_LOBBY):
+                                        time.sleep(0.01)
                                         CHARACTERS_IN_LOBBY.append(converted_value)
+                                        print(f"line 239, all  characters in the lobby: {CHARACTERS_IN_LOBBY}")
+
                                     if(len(CHARACTERS_IN_LOBBY)>5):
-                                        time.sleep(0.1)
+                                        time.sleep(0.01)
                                         print(f"line 112, all 6 characters in the lobby: {CHARACTERS_IN_LOBBY}")
                                         self.update_signal.emit("update_characters_display")  # Emit signal to update characters
                         # Update player trainings with external names
@@ -137,12 +256,12 @@ class LogEventHandler(FileSystemEventHandler):
                             if match:
                                 player = match.group(1)
                                 if player not in PLAYER_LIST:
+                                    time.sleep(0.01)
                                     PLAYER_LIST.append(player)  # Add player to PLAYER_LIST
                                     #time.sleep(0.1)
                                     #print(f"line 98 printing player_list {PLAYER_LIST}")
                                     if(len(PLAYER_LIST)==6):
                                         print(f"line 99 printing player_list {PLAYER_LIST}")
-                                        time.sleep(0.1)
                                         self.update_signal.emit("update_player_display")  # Emit signal to update players
 
                                 trainings = [dict_internal_to_external.get(t, t) for t in re.findall(r"TD_\w+", match.group(2)) if t.startswith("TD_")]
@@ -163,14 +282,15 @@ class LogEventHandler(FileSystemEventHandler):
 
 
                         if "Application Will Terminate" in cleaned_line:
-                            time.sleep(0.01)
+
                             self.update_signal.emit(cleaned_line)
                             print(f"Application will terminate line found. we should end this program.")
-                            time.sleep(2)
+
 
 
 
     def reset_global_lists(self):
+        time.sleep(0.01)
         CURRENT_GAME_LOGS.clear()
         DICT_IGN_TRAININGS.clear()
         CHARACTERS_IN_LOBBY.clear()
@@ -382,7 +502,7 @@ class LogViewer(QWidget):
 
 
     def initUI(self):
-        self.setWindowTitle("Drag'n'Drop Awakenings Overlay v0.0.2")
+        self.setWindowTitle("Drag'n'Drop Awakenings Overlay v1.0.1")
         self.setGeometry(100, 100, 700, 450)
         self.setWindowIcon(QIcon(resourcePath("images/nao_thumbnail.ico")))
         self.setStyleSheet("QMainWindow {background-color: darkgray;}")
@@ -408,11 +528,20 @@ class LogViewer(QWidget):
         self.character_labels = []
         main_layout.addLayout(self.characters_layout)
 
+        ''''
         self.swap_button = QPushButton("Swap Teams")
         self.swap_button.clicked.connect(self.swap_team_contents)  # Connect button click to method
         self.swap_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Minimum)
         self.swap_button.setFixedHeight(30)
         main_layout.addWidget(self.swap_button, alignment=Qt.AlignCenter)  # Center the button
+        '''
+        self.clear_button = QPushButton("Clear All")
+        self.clear_button.clicked.connect(self.clear_all_dropzones)  # Connect to the new clearing method
+        self.clear_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Minimum)
+        self.clear_button.setFixedHeight(30)
+        main_layout.addWidget(self.clear_button, alignment=Qt.AlignCenter)
+
+
         # Team layout
         team_layout = QHBoxLayout()  # Changed to QHBoxLayout for side-by-side stacking
 
@@ -493,8 +622,44 @@ class LogViewer(QWidget):
 
 
             self.update()
-            # If you want to update the GUI representation (like showing images), you'll need to implement that logic as well.
+
             self.write_to_text_overlay_output()
+    def clear_all_dropzones(self):
+        """Clears the textual data, stored assets, and visual layouts of all team slots, restoring the dark grey background."""
+        # Combine both team slot lists to iterate through them cleanly
+        all_slots = self.blue_team_slots + self.red_team_slots
+
+
+        default_grey_style = "background-color: #a9a9a9"
+
+        for player_slot, character_slot in all_slots:
+            # 1. Reset the Player DropZone
+            player_slot.set_text("")
+            player_slot.setStyleSheet(default_grey_style)  # Restore grey look
+            if player_slot.layout() is not None:
+                while player_slot.layout().count():
+                    item = player_slot.layout().takeAt(0)
+                    widget = item.widget()
+                    if widget is not None:
+                        widget.deleteLater()
+
+            # 2. Reset the Character DropZone
+            character_slot.set_text("")
+            character_slot.set_character_image_path(None)
+            character_slot.setStyleSheet(default_grey_style)  # Restore grey look
+            if character_slot.layout() is not None:
+                while character_slot.layout().count():
+                    item = character_slot.layout().takeAt(0)
+                    widget = item.widget()
+                    if widget is not None:
+                        widget.deleteLater()
+
+        # Force a visual update across the interface canvas
+        self.update()
+        self.repaint()
+
+        # Sync the cleared status out to your network overlay instantly
+        self.write_to_text_overlay_output()
 
     def first_drop_zone_at_pos(self, pos):
     # Convert the position to global coordinates
@@ -585,6 +750,7 @@ class LogViewer(QWidget):
 
 
     def update_player_display(self):
+        time.sleep(0.02)
         # Clear existing players
         global PLAYER_LIST
 
@@ -616,48 +782,53 @@ class LogViewer(QWidget):
 
 
     def update_character_display(self):
-        # Clear existing characters
-        global CHARACTERS_IN_LOBBY
-        if(len(self.character_labels)==0):
-            for character in CHARACTERS_IN_LOBBY:  # Assuming this is your list of characters
-                character_image_path = resourcePath(f"images/{character}.png")  # Ensure this is the correct path
-                character_pixmap = QPixmap(character_image_path)  # Load the image as QPixmap
+            # Clear existing characters
+            time.sleep(0.001)
+            global CHARACTERS_IN_LOBBY
+            print('the top of update_character_display')
 
-                if not character_pixmap.isNull():  # Check if the image was loaded successfully
-                    character_label = DraggableLabel(player_name=None,character_name= str(character), image_path=str(character_image_path))  # Pass both arguments
-                    print(f"line 601: {character_label.character_name},{character_label.image_path},{character_label.player_name}, ")
-                    #self, player_name=None, character_name=None, image_path=None, *args, **kwargs)
-                    character_label.setPixmap(character_pixmap.scaled(80, 80, Qt.KeepAspectRatio))  # Example scaling
-                    character_label.show()  # Show the label
+            if len(self.character_labels) == 0:
+                for character in CHARACTERS_IN_LOBBY:  # Assuming this is your list of characters
+                    # Use forward slashes inside the string and normalize the entire path
+                    character_image_path = os.path.normpath(resourcePath(f"images/{character}.png"))
+                    character_pixmap = QPixmap(character_image_path)  # Load the image as QPixmap
 
+                    if not character_pixmap.isNull():  # Check if the image was loaded successfully
+                        character_label = DraggableLabel(player_name=None, character_name=str(character), image_path=str(character_image_path))
+                        print(f"line 601: {character_label.character_name},{character_label.image_path},{character_label.player_name}, ")
+                        character_label.setPixmap(character_pixmap.scaled(80, 80, Qt.KeepAspectRatio))
+                        character_label.show()  # Show the label
 
-                    # Add to the layout and store in the labels list
-                    self.character_labels.append(character_label)
-                    self.characters_layout.addWidget(character_label)
-                else:
-                    print(f"Failed to load image for character: {character}")
-        else:
-            # Update existing labels with new attributes
-            for index, character_label in enumerate(self.character_labels):
+                        # Add to the layout and store in the labels list
+                        self.character_labels.append(character_label)
+                        self.characters_layout.addWidget(character_label)
+                    else:
+                        print(f"Failed to load image for character: {character}")
+            else:
+                # Update existing labels with new attributes
+                for index, character_label in enumerate(self.character_labels):
+                    # Safety Check: Prevent IndexError if the lobby list is smaller than the labels pool
+                    if index < len(CHARACTERS_IN_LOBBY):
+                        character_name = str(CHARACTERS_IN_LOBBY[index])
+                        character_label.text = str(character_name)
+                        character_label.character_name = str(character_name)
 
-                character_name = str(CHARACTERS_IN_LOBBY[index])
-                character_label.text = str(character_name)
-                character_label.character_name = str(character_name)
-                #character_label.setText(character_name)
+                        # Use forward slashes and normalize the path here as well
+                        character_image_path = os.path.normpath(resourcePath(f"images/{character_name}.png"))
+                        character_pixmap = QPixmap(character_image_path)  # Load the image as QPixmap
 
-                character_image_path =resourcePath(f"images/{str(character_name)}.png")  # Get the updated path
-                character_pixmap = QPixmap(str(character_image_path))  # Load the image as QPixmap
+                        if not character_pixmap.isNull():  # Check if the image was loaded successfully
+                            character_label.setPixmap(character_pixmap.scaled(80, 80, Qt.KeepAspectRatio))  # Update pixmap
+                            character_label.image_path = str(character_image_path)  # Update image_path attribute
+                            print(f"line 628: {character_label.character_name},{character_label.image_path},{character_label.player_name}, ")
+                            character_label.show()  # Show the label
+                        else:
+                            print(f"Failed to load updated image for character: {character_name}")
+                    else:
+                        # Hide excess labels if fewer characters are currently in the lobby
+                        character_label.hide()
 
-                if not character_pixmap.isNull():  # Check if the image was loaded successfully
-                        # Update the label's pixmap and any other attributes as necessary
-
-                    character_label.setPixmap(character_pixmap.scaled(80, 80, Qt.KeepAspectRatio))  # Update pixmap
-                    character_label.image_path = str(character_image_path)  # Update image_path attribute if needed
-                    print(f"line 628: {character_label.character_name},{character_label.image_path},{character_label.player_name}, ")
-                    character_label.show()  # Show the label
-                    self.update()
-                else:
-                    print(f"Failed to load updated image for character: {character_name}")
+                self.update()
 
     def print_data_dropzones(self):
         player_names = []
@@ -691,60 +862,130 @@ class LogViewer(QWidget):
 
 
 
-
+        #write to text, but it instead sends a json to websocket.
     def write_to_text_overlay_output(self):
-        #looks at the dropzones, and prints out the intented organised output file.
-        #TODO only prints right now. write to a notepad!
-        playerlist, characterlist = self.print_data_dropzones()
-        print(f"Current Players in corresponding dropzones: {', '.join(playerlist)}")
-        print(f"Current Characters in corresponding dropzones: {', '.join(characterlist)}")
-        print(f"This is the unorganized dict: {DICT_IGN_TRAININGS}")
+        """
+        Extracts team layouts from the PyQt5 UI slots, structures them into a
+        unified 3v3 layout format, and broadcasts the frame over the WebSocket.
+
+        file_path = "website/dummy_overlay.json"
+        with open(file_path, "r", encoding="utf-8") as file:
+            dummy = json.load(file)
+        print("Successfully loaded dummy_overlay.json from disk!")
+
+    # You can now pass it right into your broadcaster
+        print(dummy)
+        time.sleep(0.05)
+        broadcast_to_overlay(dummy)
+
+        print('line827')
+        return
+        """
+        time.sleep(0.01)
 
 
-        # Initialize a list to hold the formatted strings for each player
-        indexed_overlay_of_players_characters_trainings = []
+        player_count = 0
+        character_count = 0
 
-        # Iterate over the playerlist and characterlist
-        for i, player in enumerate(playerlist):
-            # Define the filename for each player
-            filename = f"player{i}.txt"
+        all_slots = self.blue_team_slots + self.red_team_slots
+        for player_slot, character_slot in all_slots:
+            p_text = player_slot.get_text().strip() if player_slot.get_text() else ""
+            c_text = character_slot.get_text().strip() if character_slot.get_text() else ""
 
-            # Get the character for the player if available
-            character = characterlist[i] if i < len(characterlist) else None
+            if p_text:
+                player_count += 1
+            if c_text and c_text != "No character assigned":
+                character_count += 1
 
-            # Retrieve the trainings list for the player, defaulting to an empty list if not found
-            trainings = DICT_IGN_TRAININGS.get(player, [])
+        # Early exit if the numbers of players and characters are unequal
+        if player_count != character_count:
+            print(f"Broadcast skipped: Player count ({player_count}) != Character count ({character_count}).")
+            return
 
-            # Write to the file in UTF-8 encoding
-            with open(filename, 'w', encoding='utf-8') as file:
-                # Write the player's name
-                file.write(f"{player}\n")
 
-                # Write the character (use a placeholder if character is None)
-                file.write(f"{character or 'No character assigned'}\n")
 
-                # Write each training item on a new line
-                for training in trainings:
-                    file.write(f"{training}\n")
+        payload = {
+            "blue": [],
+            "red": []
+        }
 
-            print(f"Data for {player} written to {filename}.")
+        # 1. Process Blue Team Slots
+        for i in range(3):
+            if i < len(self.blue_team_slots):
+                player_slot, character_slot = self.blue_team_slots[i]
+                player_name = player_slot.get_text().strip() if player_slot.get_text() else ""
+                character_name = character_slot.get_text().strip() if character_slot.get_text() else "No character assigned"
+            else:
+                player_name = ""
+                character_name = "No character assigned"
 
-        # Join the list into a single string with line breaks between each entry
-        print('here are the organized players, characters, and their trainings.')
-        print("\n".join(indexed_overlay_of_players_characters_trainings))
-        return "\n".join(indexed_overlay_of_players_characters_trainings)
+            # Revert character name by looking up the key for the matching value
+            internal_character_name = next(
+                (k for k, v in dict_internal_to_external_CD.items() if v == character_name),
+                character_name  # Fallback if no matching value is found (e.g., "No character assigned")
+            )
+
+            # Retrieve external trainings array
+            external_trainings = DICT_IGN_TRAININGS.get(player_name, []) if player_name else []
+
+            # Revert each training back to its internal name using your existing dictionary
+            internal_trainings = [
+                next((k for k, v in DICT_INTERNAL_TO_EXTERNAL_AWAKENINGS.items() if v == t), t)
+                for t in external_trainings
+            ]
+
+            payload["blue"].append({
+                "player": player_name,
+                "character": internal_character_name,
+                "trainings": internal_trainings
+            })
+
+        # 2. Process Red Team Slots
+        for i in range(3):
+            if i < len(self.red_team_slots):
+                player_slot, character_slot = self.red_team_slots[i]
+                player_name = player_slot.get_text().strip() if player_slot.get_text() else ""
+                character_name = character_slot.get_text().strip() if character_slot.get_text() else "No character assigned"
+            else:
+                player_name = ""
+                character_name = "No character assigned"
+
+            # Revert character name by looking up the key for the matching value
+            internal_character_name = next(
+                (k for k, v in dict_internal_to_external_CD.items() if v == character_name),
+                character_name
+            )
+
+            # Retrieve external trainings array
+            external_trainings = DICT_IGN_TRAININGS.get(player_name, []) if player_name else []
+
+            # Revert each training back to its internal name using your existing dictionary
+            internal_trainings = [
+                next((k for k, v in DICT_INTERNAL_TO_EXTERNAL_AWAKENINGS.items() if v == t), t)
+                for t in external_trainings
+            ]
+
+            payload["red"].append({
+                "player": player_name,
+                "character": internal_character_name,
+                "trainings": internal_trainings
+            })
+        # 3. Transmit the complete layout frame out to the server
+        print(payload)
+        broadcast_to_overlay(payload)
 
     def display_log_entry(self, log_message): # this receives a signal from on_modified():
         #let's process the entry here.
         #self.update_signal.emit("update_player_display")
         #self.update_signal.emit("update_characters_display")
         #print(f"Log Entry: {entry}")  # For debugging
+
         if "Application Will Terminate" in log_message:
             self.print_data_dropzones()
             #TODO exit
             print("Application will terminate log line found, closing app.")
-            time.sleep(2)
-            self.close()
+
+            QTimer.singleShot(2000, self.close)
         if "update_characters_display" == log_message:
             #print('found log message that apllication will terminate')
             self.update_character_display()
@@ -758,7 +999,16 @@ class LogViewer(QWidget):
 
         elif "equipped_awakenings_has_changed" == log_message:
             self.write_to_text_overlay_output()
-def main():
+
+
+
+
+
+
+
+
+def main(): #TODO remove return true in is_omega_strikers_window_open() function
+
     if not is_omega_strikers_window_open():
         root = tk.Tk()
         root.withdraw()  # Hide the root window
@@ -769,7 +1019,17 @@ def main():
     app = QApplication(sys.argv)
     viewer = LogViewer()
 
+    server_thread = threading.Thread(
+        target=start_asyncio_server,
+        args=(viewer,),
+        daemon=True
+    )
+    server_thread.start() #hosts website
+
+
     log_file_path = os.path.join(os.getenv('LOCALAPPDATA'), 'OmegaStrikers', 'Saved', 'Logs', 'OmegaStrikers.log')
+
+    #log_file_path = os.path.normpath("C:/Users/wasdf/Downloads/OmegaStrikers.log")
 
     # Start log monitoring in a separate thread
     thread = QThread()
@@ -781,8 +1041,10 @@ def main():
     viewer.show()
 
     # Append a '.' to the log file. this is for testing: changing the .log file forces the observer to pay attention.
-    #with open(log_file_path, 'a') as log_file:  # 'a' mode opens the file for appending
-    #    log_file.write('.\n')  # Write the dot and add a newline for readability
+
+    # with open(log_file_path, 'a') as log_file:  # 'a' mode opens the file for appending
+    #     time.sleep(1)
+    #     log_file.write('.\n')  # Write the dot and add a newline for readability
 
     try:
         sys.exit(app.exec_())
