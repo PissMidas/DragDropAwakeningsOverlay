@@ -31,5 +31,5 @@ To compile this program...
 
 4. you do not have to compile the program into an executable, you can also just run 'python main.py'. but these steps above are for if you want to compile the app.
 
-##Acknowledgements
+## Acknowledgements
 Thank you to zzZ for the original overlay design.
