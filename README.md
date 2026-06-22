@@ -6,7 +6,7 @@ A GUI that stream runners can use while spectating an Omega Strikers game. After
 2. Once all slots are filled manually on the gui (it requires the user to match which players are playing which characters; dragging and dropping icons and names present on the GUI), the app outputs two overlays to...
   http://localhost:8765/blue and http://localhost:8765/red
 
-3. Go to OBS. Add a new source. Select Browser. Name it 'blue team' (or something similar). Set the url to http://localhost:8765/blue . set width to 1920, and height to 1080. Delete whatever is in the "Custom CSS" field. Press OK (You do not need to mess with the other settings, just keep them to whatever they default came with). Resize the overlay as needed.
+3. Go to OBS. Add a new source. Select Browser. Name it 'blue team' (or something similar). Set the url to http://localhost:8765/blue . set width to 1920, and height to 1080. Delete whatever is in the "Custom CSS" field. Press OK (You do not need to mess with the other settings, just keep them to whatever they default came with). Resize the overlay as needed. Hold Ctrl as you resize the overlay to ignore snapping.
 
 5. Repeat, for red team.
 
