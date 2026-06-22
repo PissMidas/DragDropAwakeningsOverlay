@@ -1,0 +1,172 @@
+
+/*   1. CORE CANVAS MASK & WORKSPACE */
+html, body {
+    margin: 0;
+    padding: 0;
+    background: transparent; /* Allows transparency overlay */
+    overflow: hidden;
+    font-family: 'Arial', sans-serif;
+}
+
+#overlay-container {
+    position: relative;
+    width: 1920px;
+    height: 1080px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 0px;
+    padding: 30px;
+}
+
+/*    2. PLAYER ROW COMPONENT STRUCTURE (A row is 1050x200) */
+.player-row {
+    position: relative;
+    width: 1050px;
+    height: 200px;
+    box-sizing: border-box;
+
+    /* APPLY NEGATIVE MARGIN: Pulls the next row up by X pixels */
+    margin-bottom: -46px;
+}
+
+/* Prevent the very last row from adding an unwanted bottom margin offset */
+.player-row:last-child {
+    margin-bottom: 0;
+}
+
+/*
+   3. LAYER MANAGERS */
+.row-sheet {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1050px;
+    height: 200px;
+    background-repeat: no-repeat;
+    background-position: left top;
+    pointer-events: none;
+}
+
+.layer-bg {
+    z-index: 1; /* Layer 1: Base color plate underlay */
+}
+
+.layer-under-gear {
+    z-index: 2; /* Layer 2: Holds character portrait asset and trainings  */
+}
+
+.layer-gear-bg {
+    z-index: 3; /* Layer 3. Background for gear.*/
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position-x: 23px;
+    background-position-y: top;
+}
+
+.layer-gear-icon-track {
+    z-index: 4; /* Layer 4: Holds the 96x96 gear asset */
+    padding-left: 133px; /* Compensates for the portrait/gap layout placement offset */
+}
+
+.layer-gear-full {
+    z-index: 5; /* Layer 5: Full canvas gear layer */
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position-x: 33px;
+    background-position-y: top;
+}
+
+.layer-border {
+    z-index: 6; /* Layer 6: Top-most framing border sheet overlay (Size 1-5 assets). Row border. */
+}
+
+/* 4. INTERIOR CONTENT LAYOUT (Shared Track Blueprints)*/
+.inline-content-track {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1050px;
+    height: 200px;
+    display: flex;
+    align-items: normal;
+    padding-left: 25px;
+    padding-right: 25px;
+    box-sizing: border-box;
+    pointer-events: none; /* Allows click-through logic over transparent zones */
+}
+
+/* Character Portrait Component Configuration (Layer 2 Content)*/
+.portrait-wrapper {
+    position: relative;
+    width: 128px;
+    height: 128px;
+    margin-right: 30px;
+    margin-top: 39px;
+    left: 15px;
+}
+
+.char-portrait {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 128px;
+    height: 128px;
+    object-fit: cover;
+    z-index: 1;
+}
+
+.char-border {
+    position: absolute;
+    top: -13.5px;   /* Center calibration for 155x155 border overlay over 128x128 frame */
+    left: -13.5px;
+    width: 155px;
+    height: 155px;
+    object-fit: contain;
+    z-index: 2;
+}
+
+/*    Local Gear Component Configuration (Layer 4 Content) */
+.gear-wrapper {
+    position: relative;
+    width: 96px;
+    height: 96px;
+    margin-left: 110px; /* Pulls the gear over the portrait lower corner slightly */
+    margin-right: 25px;
+    margin-top: 76px;
+}
+
+.gear-icon { /* The gear asset*/
+    width: 96px;
+    height: 96px;
+    object-fit: contain;
+}
+
+/* Trainings Track Component Configuration (Layer 2 Content)*/
+.trainings-track {
+    display: flex;
+    align-items: normal;
+    gap: 0px;
+    margin-top: 39px;
+    margin-left: 25px;
+}
+
+.training-icon {
+    width: 128px;
+    height: 128px;
+    object-fit: contain;
+}
+
+/* 5.  Flipping, for red team. Uses js.*/
+.pre-flip-asset {
+    transform: scaleX(-1); /* Flips the asset backward before the container transformation */
+}
+
+.mirror-entire-row {
+    /* FIX THE CUT-OFF: Combine the flip with a horizontal shift */
+    /* scaleX(-1) mirrors it, translateX(-100%) shifts its bounding box back onto the screen */
+    transform: scaleX(-1) translateX(-100%);
+
+    /* Change the origin anchor to the left side to allow the translation vector to pull right */
+    transform-origin: left center;
+}
