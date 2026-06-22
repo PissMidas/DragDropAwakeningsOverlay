@@ -3,10 +3,10 @@ A GUI that enables that stream runners can use while spectating an Omega Striker
 
 ## These steps below are for stream runners that want to download this app
 1. go to https://github.com/PissMidas/DragDropAwakeningsOverlay/releases to download the project zip file. Extract the project, and then double click the .exe to start the app while Omega Strikers is running. You must be spectating a full game to generate an overlay. Generally a 3v3 custom, although the app technically works in ranked/normals. App does not work with games less than 6 players.
-2. Once all slots are filled manually on the gui (it requires the user to match which players are playing which characters; dragging and dropping icons on the GUI), the app outputs two overlays to...
+2. Once all slots are filled manually on the gui (it requires the user to match which players are playing which characters; dragging and dropping icons and names present on the GUI), the app outputs two overlays to...
   http://localhost:8765/blue and http://localhost:8765/red
 
-3. Go to OBS. Add a new source. Select Browser. Name it 'blue team' (or something similar). Set the url to http://localhost:8765/blue . set width to 1920, and height to 1080. Delete whatever is in the "Custom CSS" field. Press OK (You do not need to touch with the other settings, just keep them to whatever they default came with). Resize the overlay as needed.
+3. Go to OBS. Add a new source. Select Browser. Name it 'blue team' (or something similar). Set the url to http://localhost:8765/blue . set width to 1920, and height to 1080. Delete whatever is in the "Custom CSS" field. Press OK (You do not need to mess with the other settings, just keep them to whatever they default came with). Resize the overlay as needed.
 
 5. Repeat, for red team.
 
