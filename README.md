@@ -21,12 +21,14 @@ To compile this program...
 1. Download this repo.
 2. install relevant libraries (and pyinstaller)
 3. go to command terminal and type in
+   
    pyinstaller --onefile --icon=images/nao_thumbnail.ico --add-data "images;images" --noconsole --name "DragnDropAwakeningsOverlay" main.py
 
   the above comands uses '--noconsole' flag which disables print statements.
 
 
    pyinstaller --onefile --icon=images/nao_thumbnail.ico --add-data "images;images" --name "DragnDropAwakeningsOverlay" main.py
+   
    the above command does not use '--noconsole'. you can see print statements, which is useful for debugging.
 
 4. you do not have to compile the program into an executable, you can also just run 'python main.py'. but these steps above are for if you want to compile the app.
