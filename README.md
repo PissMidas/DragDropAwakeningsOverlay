@@ -1,5 +1,5 @@
 # DragDropAwakeningsOverlay
-A GUI that stream runners can use while spectating an Omega Strikers game. After dragging the images and names in the GUI, an overlay is created that can be broadcasted to OBS.
+A GUI that stream runners can use while spectating an Omega Strikers game. After dragging the images and names in the GUI, an overlay is created that can be broadcasted to OBS. The overlay displays every players' awakening builds.
 
 ## These steps below are for stream runners that want to download this app
 1. go to https://github.com/PissMidas/DragDropAwakeningsOverlay/releases to download the project zip file. Extract the project, and then double click the .exe to start the app while Omega Strikers is running. You must be spectating a full game to generate an overlay. Generally a 3v3 custom, although the app technically works in ranked/normals. App does not work with games less than 6 players.
